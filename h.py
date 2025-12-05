@@ -10,7 +10,7 @@ from collections import deque
 
 # ==================== 配置区 ====================
 WS_URL = "ws://121.43.195.181:5001/ws/cam/"  # 你的服务器地址
-
+# 服务器摄像头+手势识别
 # 保存路径（自动创建）
 SAVE_DIR = "AI特效截图"  # 改成你喜欢的文件夹名
 os.makedirs(SAVE_DIR, exist_ok=True)
