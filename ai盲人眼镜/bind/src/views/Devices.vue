@@ -107,8 +107,8 @@
             <button class="daction-btn" @click.stop="goToDashboard(device)" title="实时监控">
               <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
             </button>
-            <button class="daction-btn" @click.stop="sendVoice(device)" title="远程喊话">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 013 3v7a3 3 0 01-6 0V4a3 3 0 013-3z" stroke="currentColor" stroke-width="1.5"/><path d="M19 10v1a7 7 0 01-14 0v-1M12 18v4M8 22h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <button class="daction-btn" @click.stop="startCall(device)" title="语音通话">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 013.09 4.18 2 2 0 015.07 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L9.09 9.91a16 16 0 006.99 6.99l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
             <button class="daction-btn" @click.stop="restartDevice(device)" title="重启设备">
               <svg viewBox="0 0 24 24" fill="none"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -240,12 +240,12 @@
           <div class="detail-section">
             <div class="section-title">远程控制</div>
             <div class="ctrl-grid">
-              <button class="ctrl-card" @click="sendVoice(selectedDevice)">
+              <button class="ctrl-card" @click="startCall(selectedDevice)">
                 <div class="ctrl-icon mic-bg">
-                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 013 3v7a3 3 0 01-6 0V4a3 3 0 013-3z" stroke="currentColor" stroke-width="1.5"/><path d="M19 10v1a7 7 0 01-14 0v-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 013.09 4.18 2 2 0 015.07 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L9.09 9.91a16 16 0 006.99 6.99l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
-                <span class="ctrl-label">远程喊话</span>
-                <span class="ctrl-desc">发送语音指令</span>
+                <span class="ctrl-label">语音通话</span>
+                <span class="ctrl-desc">与用户实时通话</span>
               </button>
               <button class="ctrl-card" @click="restartDevice(selectedDevice)">
                 <div class="ctrl-icon restart-bg">
@@ -355,18 +355,105 @@
         </div>
       </div>
     </div>
+    <!-- 语音通话弹窗 -->
+    <!-- 隐藏的音频容器，用于播放远端声音 -->
+    <div id="trtc-audio-container" style="display:none"></div>
+
+    <!-- 来电弹窗 -->
+    <div class="modal-wrap incoming-wrap" v-if="incomingCall">
+      <div class="incoming-modal">
+        <div class="incoming-ring-area">
+          <div class="incoming-avatar">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="7" y="2" width="10" height="18" rx="2.5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="17.5" r="1" fill="currentColor"/><path d="M10 5.5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="incoming-ripple r1"></div>
+          <div class="incoming-ripple r2"></div>
+          <div class="incoming-ripple r3"></div>
+        </div>
+        <div class="incoming-name">{{ callingDevice?.name || '用户' }}</div>
+        <div class="incoming-hint">语音通话邀请</div>
+        <div class="incoming-btns">
+          <button class="incoming-btn reject" @click="rejectCall">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 013.09 4.18 2 2 0 015.07 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L9.09 9.91" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="23" y1="1" x2="1" y2="23" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>拒接</span>
+          </button>
+          <button class="incoming-btn answer" @click="answerCall">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 013.09 4.18 2 2 0 015.07 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L9.09 9.91a16 16 0 006.99 6.99l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>接听</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-wrap" v-if="callState !== 'idle'" @click.self="callState === 'connecting' && hangUp()">
+      <div class="call-modal">
+        <!-- 头部 -->
+        <div class="call-modal-top">
+          <span class="call-modal-title">{{ callState === 'connecting' ? '呼叫中' : '通话中' }}</span>
+          <span class="call-modal-duration" v-if="callState === 'connected'">{{ callDurationText }}</span>
+        </div>
+
+        <!-- 头像区 -->
+        <div class="call-modal-avatar-area">
+          <div class="call-modal-avatar" :class="callState === 'connected' ? 'avatar-active' : ''">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="7" y="2" width="10" height="18" rx="2.5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="17.5" r="1" fill="currentColor"/><path d="M10 5.5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="call-modal-device-name">{{ callingDevice?.name }}</div>
+          <div class="call-modal-device-id">{{ callingDevice?.id }}</div>
+          <div class="call-modal-hint" v-if="callState === 'connecting'">
+            <span class="connecting-dots">等待用户接听</span>
+          </div>
+          <div class="call-modal-hint" v-if="callState === 'connected'">
+            <span style="color: #22c55e; font-weight: 600;">● 通话中</span>
+          </div>
+        </div>
+
+        <!-- 控制按钮 -->
+        <div class="call-modal-controls">
+          <button class="call-ctrl" :class="isMuted ? 'ctrl-active' : ''" @click="toggleMute" title="静音">
+            <svg v-if="!isMuted" viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 013 3v7a3 3 0 01-6 0V4a3 3 0 013-3z" stroke="currentColor" stroke-width="1.5"/><path d="M19 10v1a7 7 0 01-14 0v-1M12 18v4M8 22h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none"><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23M12 19v4M8 23h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>{{ isMuted ? '已静音' : '静音' }}</span>
+          </button>
+
+          <button class="call-hangup" @click="hangUp" title="挂断">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 013.09 4.18 2 2 0 015.07 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L9.09 9.91" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="23" y1="1" x2="1" y2="23" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>挂断</span>
+          </button>
+
+          <button class="call-ctrl" @click="toggleSpeaker" :class="speakerOn ? 'ctrl-active' : ''" title="扬声器">
+            <svg viewBox="0 0 24 24" fill="none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path v-if="speakerOn" d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>{{ speakerOn ? '扬声器' : '听筒' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { genUserSig } from '@/utils/trtc.js'
 
-const searchQuery = ref('')
-const showAddModal = ref(false)
-const showEditModal = ref(false)
+const VOLUNTEER_USER_ID = 'volunteer001'
+// userSig 在调用时动态生成，无需硬编码
+
+const searchQuery    = ref('')
+const showAddModal   = ref(false)
+const showEditModal  = ref(false)
 const selectedDevice = ref(null)
-const newDevice = ref({ name: '', id: '', user: '' })
-const editingDevice = ref(null)
+const newDevice      = ref({ name: '', id: '', user: '' })
+const editingDevice  = ref(null)
+
+// ── 通话状态 ──────────────────────────────────────────────────────────────
+const callState        = ref('idle')   // 'idle' | 'connecting' | 'connected'
+const callingDevice    = ref(null)
+const isMuted          = ref(false)
+const speakerOn        = ref(true)
+const callDuration     = ref(0)
+const callDurationText = ref('00:00')
+const incomingCall     = ref(false)    // 来电弹窗
+let   _durationTimer   = null
+// ──────────────────────────────────────────────────────────────────────────
 
 const sensorList = [
   { key: 'camera',     label: '摄像头', icon: '<rect x="2" y="7" width="15" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M17 9l4-2v10l-4-2V9z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' },
@@ -477,6 +564,267 @@ const doAddDevice = () => {
   showAddModal.value = false
   newDevice.value = { name: '', id: '', user: '' }
 }
+
+// ── 语音通话 ──────────────────────────────────────────────────────────────
+
+const ROOM_ID       = 123456
+const USER_ID       = 'user001'      // 小程序端用户
+let   _watchClient  = null           // 常驻监听客户端（无音频，只看房间成员）
+let   _watchStream  = null           // 监听客户端的静音本地流
+let   _callClient   = null           // 通话客户端（有音频）
+let   _localStream  = null
+
+// 来电状态
+function _startDurationTimer() {
+  callDuration.value = 0
+  _durationTimer = setInterval(() => {
+    callDuration.value++
+    const m = String(Math.floor(callDuration.value / 60)).padStart(2, '0')
+    const s = String(callDuration.value % 60).padStart(2, '0')
+    callDurationText.value = `${m}:${s}`
+  }, 1000)
+}
+
+function _stopDurationTimer() {
+  if (_durationTimer) { clearInterval(_durationTimer); _durationTimer = null }
+}
+
+// 页面加载后启动监听客户端，等待小程序用户呼入
+async function startWatching() {
+  // 清理已有的监听客户端，避免重复进房
+  if (_watchClient) {
+    try {
+      _watchClient.off('peer-join',  _onUserEnter)
+      _watchClient.off('peer-enter', _onUserEnter)
+      _watchClient.off('peer-leave', _onUserLeave)
+      await _watchClient.leave()
+    } catch (_) {}
+    _watchClient = null
+  }
+  const TRTC = (await import('trtc-js-sdk')).default
+  const { sdkAppId, userSig } = genUserSig(VOLUNTEER_USER_ID)
+
+  _watchClient = TRTC.createClient({
+    sdkAppId,
+    userId:  VOLUNTEER_USER_ID,
+    userSig,
+    mode:    'rtc',
+  })
+
+  _watchClient.on('peer-join',  _onUserEnter)
+  _watchClient.on('peer-enter', _onUserEnter)
+  _watchClient.on('peer-leave', _onUserLeave)
+  // 用户推流时订阅，并弹来电（比 peer-enter 更可靠）
+  _watchClient.on('stream-added', async (event) => {
+    const userId = event.stream.getUserId()
+    console.log('[TRTC] watch stream-added:', userId)
+    if (userId !== USER_ID) return
+    try {
+      await _watchClient.subscribe(event.stream, { audio: true, video: false })
+      console.log('[TRTC] watch subscribed user001 stream')
+    } catch (_) {}
+    // 如果 peer-enter 没触发来电弹窗，这里补触发
+    if (callState.value === 'idle' && !incomingCall.value) {
+      incomingCall.value  = true
+      callingDevice.value = devices.value.find(d => d.online) || { name: '用户', id: USER_ID }
+    }
+  })
+
+  try {
+    await _watchClient.join({ roomId: ROOM_ID })
+    console.log('[TRTC] 监听客户端已进房，等待用户呼入...')
+
+    // 发布静音流，让服务端把 volunteer001 视为正式参与者，才能收到 stream-added
+    const TRTC2 = (await import('trtc-js-sdk')).default
+    _watchStream = TRTC2.createStream({ audio: true, video: false })
+    await _watchStream.initialize()
+    _watchStream.muteAudio()   // 静音，不让对方听到
+    await _watchClient.publish(_watchStream)
+    console.log('[TRTC] 监听流已发布（静音）')
+  } catch (e) {
+    console.error('[TRTC] 监听客户端进房失败', e)
+    _watchClient = null
+  }
+}
+
+function _onUserEnter(event) {
+  console.log('[TRTC] peer-enter event:', JSON.stringify(event))
+  const userId = event?.userId || event?.data?.userId || ''
+  if (userId !== USER_ID) return
+  if (callState.value !== 'idle') return
+  console.log('[TRTC] 用户呼入:', userId)
+  incomingCall.value  = true
+  callingDevice.value = devices.value.find(d => d.online) || { name: '用户', id: USER_ID }
+}
+
+function _onUserLeave(event) {
+  const userId = event?.userId || event?.data?.userId || ''
+  if (userId !== USER_ID) return
+  if (incomingCall.value) {
+    // 未接听时对方挂掉
+    incomingCall.value = false
+    callingDevice.value = null
+    return
+  }
+  if (callState.value !== 'idle') hangUp()
+}
+
+// 接听
+async function answerCall() {
+  incomingCall.value = false
+  callState.value    = 'connected'
+  _startDurationTimer()
+
+  try {
+    const TRTC = (await import('trtc-js-sdk')).default
+
+    // 直接复用 _watchClient，不 leave 再 join（避免 stream-added 不触发）
+    _callClient = _watchClient
+    _watchClient = null
+
+    // 移除监听事件
+    _callClient.off('peer-join',  _onUserEnter)
+    _callClient.off('peer-enter', _onUserEnter)
+    _callClient.off('peer-leave', _onUserLeave)
+
+    // 把已订阅的远端流直接播放（_watchClient 已经 subscribe 过了）
+    _callClient.on('stream-subscribed', (event) => {
+      event.stream.play('trtc-audio-container')
+    })
+    // 补：若 stream-added 在接听后才来
+    _callClient.on('stream-added', async (event) => {
+      console.log('[TRTC] callClient stream-added:', event.stream.getUserId())
+      await _callClient.subscribe(event.stream, { audio: true, video: false })
+      event.stream.play('trtc-audio-container')
+    })
+    _callClient.on('peer-leave', () => { hangUp() })
+    _callClient.on('error',      () => { hangUp() })
+
+    // 直接 play 已订阅的流
+    if (typeof _callClient.getRemoteStreams === 'function') {
+      for (const stream of _callClient.getRemoteStreams()) {
+        console.log('[TRTC] playing existing stream:', stream.getUserId())
+        stream.play('trtc-audio-container')
+      }
+    }
+
+    // 推送本地麦克风（取消静音，替换之前的静音流）
+    if (_watchStream) {
+      _watchStream.unmuteAudio()
+      _localStream = _watchStream
+      _watchStream = null
+    } else {
+      _localStream = TRTC.createStream({ audio: true, video: false })
+      await _localStream.initialize()
+      await _callClient.publish(_localStream)
+    }
+
+  } catch (err) {
+    console.error('TRTC 接听失败:', err)
+    hangUp()
+  }
+}
+
+// 拒接
+function rejectCall() {
+  incomingCall.value  = false
+  callingDevice.value = null
+}
+
+function hangUp() {
+  _stopDurationTimer()
+  if (_watchStream) {
+    _watchStream.stop?.()
+    _watchStream.close?.()
+    _watchStream = null
+  }
+  if (_localStream) {
+    _localStream.stop?.()
+    _localStream.close?.()
+    _localStream = null
+  }
+  if (_callClient) {
+    _callClient.leave().catch(() => {})
+    _callClient = null
+  }
+  callState.value        = 'idle'
+  callingDevice.value    = null
+  callDuration.value     = 0
+  callDurationText.value = '00:00'
+  isMuted.value          = false
+  // 挂断后重新开始监听
+  setTimeout(() => startWatching(), 500)
+}
+
+// 志愿者主动发起（保留，但通常由小程序端呼入）
+async function startCall(device) {
+  if (callState.value !== 'idle') return
+  callingDevice.value = device
+  callState.value     = 'connecting'
+  isMuted.value       = false
+
+  try {
+    const TRTC = (await import('trtc-js-sdk')).default
+    const { sdkAppId, userSig } = genUserSig(VOLUNTEER_USER_ID)
+
+    if (_watchClient) {
+      try {
+        _watchClient.off('peer-join',  _onUserEnter)
+        _watchClient.off('peer-enter', _onUserEnter)
+        _watchClient.off('peer-leave', _onUserLeave)
+        await _watchClient.leave()
+      } catch (_) {}
+      _watchClient = null
+    }
+
+    // 等一个 tick，确保 TRTC 内部彻底释放 userId
+    await new Promise(r => setTimeout(r, 300))
+
+    _callClient = TRTC.createClient({ sdkAppId, userId: VOLUNTEER_USER_ID, userSig, mode: 'rtc' })
+
+    _callClient.on('stream-added', async (event) => {
+      await _callClient.subscribe(event.stream, { audio: true, video: false })
+    })
+    _callClient.on('stream-subscribed', (event) => {
+      event.stream.play('trtc-audio-container')
+    })
+    const onPeerJoin = () => { callState.value = 'connected'; _startDurationTimer() }
+    _callClient.on('peer-join',  onPeerJoin)
+    _callClient.on('peer-enter', onPeerJoin)
+    _callClient.on('peer-leave', () => { hangUp() })
+    _callClient.on('error',      () => { hangUp() })
+
+    await _callClient.join({ roomId: ROOM_ID })
+    _localStream = TRTC.createStream({ audio: true, video: false })
+    await _localStream.initialize()
+    await _callClient.publish(_localStream)
+
+  } catch (err) {
+    console.error('TRTC 通话失败:', err)
+    callState.value     = 'idle'
+    callingDevice.value = null
+  }
+}
+
+function toggleMute() {
+  isMuted.value = !isMuted.value
+  if (_localStream) {
+    isMuted.value ? _localStream.muteAudio() : _localStream.unmuteAudio()
+  }
+}
+
+function toggleSpeaker() {
+  speakerOn.value = !speakerOn.value
+}
+
+// 页面挂载后开始监听来电
+onMounted(() => { startWatching() })
+onUnmounted(() => {
+  if (_watchStream) { _watchStream.stop?.(); _watchStream.close?.(); _watchStream = null }
+  if (_watchClient) { _watchClient.leave().catch(() => {}); _watchClient = null }
+  hangUp()
+})
+// ──────────────────────────────────────────────────────────────────────────
 </script>
 
 <style scoped>
@@ -1107,4 +1455,270 @@ const doAddDevice = () => {
 .modal-btn.cancel:hover { background: #e2e8f0; }
 .modal-btn.confirm { background: #3b82f6; color: #fff; }
 .modal-btn.confirm:hover { background: #2563eb; box-shadow: 0 3px 10px rgba(59,130,246,0.3); }
+
+/* ── 语音通话弹窗 ── */
+.call-modal {
+  width: 340px;
+  background: linear-gradient(160deg, #1a2a4a 0%, #0d1b2e 100%);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: modal-in 0.22s ease;
+}
+
+.call-modal-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.call-modal-title {
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.call-modal-duration {
+  color: #22c55e;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.call-modal-avatar-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.call-modal-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  border: 2px solid rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.call-modal-avatar svg { width: 40px; height: 40px; color: rgba(255,255,255,0.7); }
+
+.call-modal-avatar.avatar-active {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 6px rgba(34,197,94,0.15);
+}
+
+.call-modal-device-name {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.call-modal-device-id {
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+}
+
+.call-modal-hint {
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+}
+
+.connecting-dots::after {
+  content: '';
+  animation: dots 1.4s infinite;
+}
+
+@keyframes dots {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
+}
+
+.call-modal-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.call-ctrl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  border-radius: 14px;
+  padding: 14px 18px;
+  cursor: pointer;
+  color: rgba(255,255,255,0.8);
+  transition: all 0.18s;
+  min-width: 76px;
+}
+
+.call-ctrl svg { width: 20px; height: 20px; }
+.call-ctrl span { font-size: 11px; font-weight: 500; }
+
+.call-ctrl:hover { background: rgba(255,255,255,0.18); }
+
+.call-ctrl.ctrl-active {
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+}
+
+.call-hangup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: #ef4444;
+  border: none;
+  border-radius: 50%;
+  width: 68px;
+  height: 68px;
+  cursor: pointer;
+  color: #fff;
+  transition: all 0.18s;
+  box-shadow: 0 6px 20px rgba(239,68,68,0.45);
+  justify-content: center;
+}
+
+.call-hangup svg { width: 22px; height: 22px; }
+.call-hangup span { font-size: 10px; font-weight: 600; }
+.call-hangup:hover { background: #dc2626; transform: scale(1.05); }
+/* ── 来电弹窗 ── */
+.incoming-wrap {
+  align-items: flex-start;
+  padding-top: 60px;
+}
+
+.incoming-modal {
+  width: 320px;
+  background: linear-gradient(160deg, #1a2a4a 0%, #0d1b2e 100%);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  padding: 36px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  animation: modal-in 0.25s ease;
+}
+
+.incoming-ring-area {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.incoming-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: rgba(99,102,241,0.2);
+  border: 2px solid rgba(139,92,246,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.incoming-avatar svg { width: 40px; height: 40px; color: rgba(255,255,255,0.8); }
+
+.incoming-ripple {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(139,92,246,0.4);
+  animation: ripple 2s ease-out infinite;
+}
+.incoming-ripple.r1 { width: 100px; height: 100px; animation-delay: 0s; }
+.incoming-ripple.r2 { width: 120px; height: 120px; animation-delay: 0.5s; }
+.incoming-ripple.r3 { width: 140px; height: 140px; animation-delay: 1s; }
+
+@keyframes ripple {
+  0%   { transform: scale(0.85); opacity: 0.8; }
+  100% { transform: scale(1.3);  opacity: 0; }
+}
+
+.incoming-name {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.incoming-hint {
+  color: rgba(255,255,255,0.45);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.incoming-btns {
+  display: flex;
+  gap: 40px;
+  margin-top: 12px;
+}
+
+.incoming-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #fff;
+}
+
+.incoming-btn svg { width: 22px; height: 22px; }
+
+.incoming-btn span {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+}
+
+.incoming-btn.reject > svg,
+.incoming-btn.reject {
+  background: #ef4444;
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(239,68,68,0.5);
+  transition: transform 0.15s;
+}
+.incoming-btn.reject svg { width: 24px; height: 24px; background: none; border-radius: 0; box-shadow: none; width: auto; height: auto; }
+.incoming-btn.reject:hover { transform: scale(1.08); }
+
+.incoming-btn.answer {
+  background: #22c55e;
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(34,197,94,0.5);
+  transition: transform 0.15s;
+}
+.incoming-btn.answer svg { width: 24px; height: 24px; }
+.incoming-btn.answer:hover { transform: scale(1.08); }
 </style>
